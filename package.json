@@ -1,0 +1,12 @@
+{
+  "name": "api-analyzer",
+  "version": "1.0.0",
+  "scripts": {
+    "start:server": "cd server && nodemon src/server.ts",
+    "start:client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run start:server\" \"npm run start:client\""
+  },
+  "devDependencies": {
+    "concurrently": "*"
+  }
+}
