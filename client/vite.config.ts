@@ -7,4 +7,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    port: 1729,
+    strictPort: true, // Fails immediately if 1729 is unavailable instead of incrementing
+  }
 })
