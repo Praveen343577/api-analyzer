@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
 import type { Request, Response, NextFunction } from 'express';
+import type { Socket } from 'net';
 
 export const proxyRouter = Router();
 
@@ -59,13 +60,16 @@ proxyRouter.use('/', (req: Request, res: Response, next: NextFunction): void => 
              * Catches DNS resolution failures, connection resets, and timeouts from the upstream server
              * to prevent the Node process from crashing.
              */
-            error: (err: Error, req: Request, res: any) => {
-                if (!res.headersSent) {
-                    res.status(502).json({ 
-                        error: 'Bad_Gateway', 
-                        message: 'Upstream API failed to respond or rejected the connection.',
-                        details: err.message
-                    });
+            error: (err: Error, req: Request, res: Response | Socket) => {
+                // Type guard: Ensure 'res' is an Express Response (HTTP) and not a raw TCP Socket (WebSocket)
+                if ('status' in res && typeof res.status === 'function') {
+                    if (!res.headersSent) {
+                        res.status(502).json({ 
+                            error: 'Bad_Gateway', 
+                            message: 'Upstream API failed to respond or rejected the connection.',
+                            details: err.message
+                        });
+                    }
                 }
             }
         }
