@@ -1,6 +1,6 @@
 # File Tree: api-analyzer
 
-**Generated:** 4/6/2026, 8:01:40 PM
+**Generated:** 4/8/2026, 9:55:42 PM
 **Root Path:** `c:\Users\1000863\Desktop\26mar26\Api Analyzer\api-analyzer`
 
 ```
@@ -37,7 +37,6 @@
 │   │   ├── 📁 utils
 │   │   │   └── 📄 cn.ts
 │   │   ├── 📄 App.tsx
-│   │   ├── 🎨 index.css
 │   │   └── 📄 main.tsx
 │   ├── ⚙️ .gitignore
 │   ├── 📝 README.md
@@ -60,6 +59,8 @@
 │   ├── ⚙️ package-lock.json
 │   ├── ⚙️ package.json
 │   └── ⚙️ tsconfig.json
+├── 📝 FileTree.md
+├── 📝 README.md
 ├── ⚙️ package-lock.json
 └── ⚙️ package.json
 ```
