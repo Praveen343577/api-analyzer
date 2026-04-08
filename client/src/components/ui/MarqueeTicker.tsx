@@ -45,7 +45,8 @@ export const MarqueeTicker = React.forwardRef<HTMLDivElement, MarqueeTickerProps
                 {...props}
             >
                 <div 
-                    className="flex animate-[marquee_linear_infinite]"
+                    // className="flex animate-[marquee_linear_infinite]"
+                    className="flex animate-marquee hover:[animation-play-state:paused]"
                     style={{ animationDuration: `${speed}s` }}
                 >
                     {/* Render identical blocks to guarantee seamless loop continuation */}
