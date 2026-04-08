@@ -15,7 +15,7 @@
  * }
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { cn } from '../../utils/cn'; // Assuming execution from client/src/components/ui/
 
 export interface MarqueeTickerProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -31,9 +31,50 @@ export interface MarqueeTickerProps extends React.HTMLAttributes<HTMLDivElement>
  * @param props - Component-specific properties merged with standard HTML div attributes.
  */
 export const MarqueeTicker = React.forwardRef<HTMLDivElement, MarqueeTickerProps>(
-    ({ className, items, speed = 30, ...props }, ref) => {
-        // Construct the continuous string stream with a high-visibility delimiter
-        const stream = items.join('   ///   ') + '   ///   ';
+    ({ className, items, speed = 1000, ...props }, ref) => {
+        const stream = items.join('   ---   ') + '   ---   '; // Delimiter between items
+        const scrollerRef = useRef<HTMLDivElement>(null);
+        const animationRef = useRef<Animation | null>(null);
+        const frameRef = useRef<number>(0);
+
+        useEffect(() => {
+            if (!scrollerRef.current) return;
+            
+            // Initialize WAAPI continuous loop
+            animationRef.current = scrollerRef.current.animate(
+                [{ transform: 'translateX(0%)' }, { transform: 'translateX(-50%)' }],
+                { duration: speed * 1000, iterations: Infinity, easing: 'linear' }
+            );
+
+            return () => {
+                animationRef.current?.cancel();
+                cancelAnimationFrame(frameRef.current);
+            };
+        }, [speed]);
+
+        // Decelerate playback rate over structural frames
+        const triggerBrake = () => {
+            cancelAnimationFrame(frameRef.current);
+            const step = () => {
+                if (!animationRef.current) return;
+                const rate = Math.max(0, animationRef.current.playbackRate - 0.04);
+                animationRef.current.playbackRate = rate;
+                if (rate > 0) frameRef.current = requestAnimationFrame(step);
+            };
+            step();
+        };
+
+        // Accelerate playback rate over structural frames
+        const releaseBrake = () => {
+            cancelAnimationFrame(frameRef.current);
+            const step = () => {
+                if (!animationRef.current) return;
+                const rate = Math.min(1, animationRef.current.playbackRate + 0.04);
+                animationRef.current.playbackRate = rate;
+                if (rate < 1) frameRef.current = requestAnimationFrame(step);
+            };
+            step();
+        };
 
         return (
             <div
@@ -42,14 +83,11 @@ export const MarqueeTicker = React.forwardRef<HTMLDivElement, MarqueeTickerProps
                     "flex w-full overflow-hidden bg-black text-white border-y-[1px] border-black py-1.5 font-mono text-xs uppercase font-bold tracking-widest whitespace-nowrap selection:bg-white selection:text-black",
                     className
                 )}
+                onMouseEnter={triggerBrake}
+                onMouseLeave={releaseBrake}
                 {...props}
             >
-                <div 
-                    // className="flex animate-[marquee_linear_infinite]"
-                    className="flex animate-marquee hover:[animation-play-state:paused]"
-                    style={{ animationDuration: `${speed}s` }}
-                >
-                    {/* Render identical blocks to guarantee seamless loop continuation */}
+                <div ref={scrollerRef} className="flex">
                     <span className="pr-0">{stream}</span>
                     <span className="pr-0">{stream}</span>
                     <span className="pr-0">{stream}</span>

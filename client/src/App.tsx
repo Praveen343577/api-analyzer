@@ -93,7 +93,7 @@ export default function App() {
     return (
         <div className="min-h-screen bg-[#f4f4f0] text-black font-sans antialiased overflow-x-hidden selection:bg-black selection:text-white pb-20">
             <EditionHeader />
-            <MarqueeTicker items={tickerItems} speed={25} />
+            <MarqueeTicker items={tickerItems} speed={30} />
             
             <main className="max-w-7xl mx-auto px-4 py-8 flex flex-col gap-8">
                 
