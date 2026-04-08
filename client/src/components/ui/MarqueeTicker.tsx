@@ -8,11 +8,6 @@
  * 3. Infinite linear CSS animation loop to simulate classic ticker-tape machines.
  * * Implementation Note: To ensure a seamless infinite scroll across wide viewports, 
  * the text content is duplicated sequentially.
- * * CSS Requirement: You must define the 'marquee' keyframes in client/src/styles/global.css:
- * @keyframes marquee {
- * 0% { transform: translateX(0%); }
- * 100% { transform: translateX(-50%); }
- * }
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -32,7 +27,7 @@ export interface MarqueeTickerProps extends React.HTMLAttributes<HTMLDivElement>
  */
 export const MarqueeTicker = React.forwardRef<HTMLDivElement, MarqueeTickerProps>(
     ({ className, items, speed = 1000, ...props }, ref) => {
-        const stream = items.join('   ---   ') + '   ---   '; // Delimiter between items
+        const stream = items.join('   ---   ') + '   ---   '; // Delimiter between items for visual separation
         const scrollerRef = useRef<HTMLDivElement>(null);
         const animationRef = useRef<Animation | null>(null);
         const frameRef = useRef<number>(0);
