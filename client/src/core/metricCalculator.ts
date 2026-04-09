@@ -9,24 +9,33 @@
  * 3. Identifies and isolates the heaviest structural branches in the payload.
  */
 
+import { isFloat, binFloat } from './floatBinner';
 export interface NodeMetric {
-    /** JSON path notation indicating node location (e.g., `data.users[0].profile`) */
-    path: string;
-    /** Exact UTF-8 byte size of the node when serialized */
-    byteSize: number;
-    /** Relative weight of this node compared to the root payload */
-    percentageOfTotal: number;
-    /** Structural classification */
-    nodeType: 'Object' | 'Array';
+    path: string;   /** JSON path notation indicating node location (e.g., `data.users[0].profile`) */
+    byteSize: number; /** Exact UTF-8 byte size of the node when serialized */
+    percentageOfTotal: number; /** Relative weight of this node compared to the root payload */
+    nodeType: 'Object' | 'Array'; /** Structural classification */
+}
+
+export interface ValueDistribution {
+    value: string;
+    count: number;
+}
+
+export interface KeyMetric {
+    key: string;
+    uniquenessScore: number;       // (distinct count * 100) / total count
+    totalValues: number;           // Total instances of this key
+    distinctValues: number;        // Number of unique values mapped to this key
+    distribution: ValueDistribution[]; // Sorted list of values and their frequencies
 }
 
 export interface PayloadMetrics {
-    /** Maximum recursive depth of the JSON tree */
-    maxDepth: number;
-    /** Total byte size of the root payload */
-    totalByteSize: number;
-    /** Top 10 heaviest objects/arrays sorted by size descending */
-    heavyBranches: NodeMetric[];
+    maxDepth: number;   /* Maximum recursive depth of the JSON tree */
+    totalByteSize: number;  /* Total byte size of the root payload */
+    heavyBranches: NodeMetric[];    /* Top 10 heaviest objects/arrays sorted by size descending */
+    uniqueKeys: KeyMetric[];       // Keys with 100% uniqueness (for dropdowns)
+    distributedKeys: KeyMetric[];  // Keys with <100% uniqueness (for distribution panel)
 }
 
 /** * Reusable encoder to accurately measure byte length of strings containing 
@@ -41,9 +50,51 @@ const encoder = new TextEncoder();
  */
 export function calculatePayloadMetrics(data: unknown): PayloadMetrics {
     const branches: NodeMetric[] = [];
-    
+    const keyTracker = new Map<string, Map<string, number>>();  // Tracks Key -> Value -> Count
+
     // Execute single-pass DFS
-    const root = dfsCompute(data, 'root', branches);
+    // Pass null for the initial currentKey
+    const root = dfsCompute(data, 'root', null, branches, keyTracker);
+
+    const uniqueKeys: KeyMetric[] = [];
+    const distributedKeys: KeyMetric[] = [];
+    
+    for (const [key, valueMap] of keyTracker.entries()) {
+        let totalValues = 0;
+        const distribution: ValueDistribution[] = [];
+
+        // Aggregate total values and build distribution array
+        for (const [val, count] of valueMap.entries()) {
+            totalValues += count;
+            distribution.push({ value: val, count });
+        }
+
+        const distinctValues = distribution.length;
+        // Apply strict mathematical formula provided by spec
+        const uniquenessScore = (distinctValues * 100) / totalValues;
+
+        // Sort distribution by frequency descending
+        distribution.sort((a, b) => b.count - a.count);
+
+        const metric: KeyMetric = {
+            key,
+            uniquenessScore,
+            totalValues,
+            distinctValues,
+            distribution
+        };
+
+        // Route to respective array based on absolute uniqueness
+        if (uniquenessScore === 100) {
+            uniqueKeys.push(metric);
+        } else {
+            distributedKeys.push(metric);
+        }
+    }
+
+    // Sort key arrays by total occurrences descending for stable UI rendering
+    uniqueKeys.sort((a, b) => b.totalValues - a.totalValues);
+    distributedKeys.sort((a, b) => b.totalValues - a.totalValues);
 
     // Post-process branches: calculate percentages and isolate the top 10 offenders
     const sortedBranches = branches
@@ -70,17 +121,45 @@ export function calculatePayloadMetrics(data: unknown): PayloadMetrics {
  * @param branches - Mutable array accumulating complex node metrics.
  * @returns Tuple of { size, depth } for the current node.
  */
-function dfsCompute(node: unknown, path: string, branches: NodeMetric[]): { size: number, depth: number } {
-    // Primitive Base Cases: Hardcoded exact JSON serialized sizes
-    if (node === null) return { size: 4, depth: 1 }; // "null"
-    if (typeof node === 'boolean') return { size: node ? 4 : 5, depth: 1 }; // "true" or "false"
+function dfsCompute(
+    node: unknown, 
+    path: string, 
+    currentKey: string | null, // The actual object property name
+    branches: NodeMetric[],
+    keyTracker: Map<string, Map<string, number>>
+): { size: number, depth: number } {
+    
+    // Helper to log values into the tracker
+    const trackValue = (valStr: string) => {
+        if (!currentKey) return;
+        if (!keyTracker.has(currentKey)) {
+            keyTracker.set(currentKey, new Map());
+        }
+        const valMap = keyTracker.get(currentKey)!;
+        valMap.set(valStr, (valMap.get(valStr) || 0) + 1);
+    };
+
+    // Primitive Base Cases
+    if (node === null) {
+        trackValue('null');
+        return { size: 4, depth: 1 };
+    }
+    
+    if (typeof node === 'boolean') {
+        trackValue(node ? 'true' : 'false');
+        return { size: node ? 4 : 5, depth: 1 };
+    }
     
     if (typeof node === 'number') {
+        // Apply float binning to prevent unique tracking of insignificant decimal drift
+        const valStr = isFloat(node) ? binFloat(node) : String(node);
+        trackValue(valStr);
         return { size: encoder.encode(node.toString()).length, depth: 1 };
     }
     
     if (typeof node === 'string') {
-        // Stringify encodes quotes and escapes characters exactly as JSON would
+        // Enclose strings in quotes to distinguish from numeric identicals (e.g., "1" vs 1)
+        trackValue(`"${node}"`);
         return { size: encoder.encode(JSON.stringify(node)).length, depth: 1 };
     }
 
@@ -90,7 +169,7 @@ function dfsCompute(node: unknown, path: string, branches: NodeMetric[]): { size
     if (Array.isArray(node)) {
         size += 2; // Account for brackets: []
         for (let i = 0; i < node.length; i++) {
-            const child = dfsCompute(node[i], `${path}[${i}]`, branches);
+            const child = dfsCompute(node[i], `${path}[${i}]`, currentKey, branches, keyTracker);
             size += child.size;
             if (i < node.length - 1) size += 1; // Account for commas
             if (child.depth > maxChildDepth) maxChildDepth = child.depth;
@@ -112,7 +191,7 @@ function dfsCompute(node: unknown, path: string, branches: NodeMetric[]): { size
             size += keySize + 1; 
             
             const childPath = path === 'root' ? key : `${path}.${key}`;
-            const child = dfsCompute((node as Record<string, unknown>)[key], childPath, branches);
+            const child = dfsCompute((node as Record<string, unknown>)[key], childPath, key, branches, keyTracker);
             size += child.size;
             
             if (i < keys.length - 1) size += 1; // Account for commas
