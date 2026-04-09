@@ -109,7 +109,9 @@ export function calculatePayloadMetrics(data: unknown): PayloadMetrics {
     return {
         maxDepth: root.depth,
         totalByteSize: root.size,
-        heavyBranches: sortedBranches
+        heavyBranches: sortedBranches,
+        uniqueKeys,
+        distributedKeys
     };
 }
 
@@ -144,7 +146,7 @@ function dfsCompute(
         trackValue('null');
         return { size: 4, depth: 1 };
     }
-    
+
     if (typeof node === 'boolean') {
         trackValue(node ? 'true' : 'false');
         return { size: node ? 4 : 5, depth: 1 };
