@@ -17,6 +17,8 @@ import { RequestTerminal, type RequestConfig } from './components/ingestion/Requ
 import { EditorialGrid } from './components/visualization/EditorialGrid';
 import { normalizeAst, type NormalizedNode } from './core/astNormalizer';
 import { calculatePayloadMetrics, type PayloadMetrics } from './core/metricCalculator';
+import { ValueDistributionPanel } from './components/visualization/ValueDistributionPanel';
+import { UniqueKeyFilter } from './components/visualization/UniqueKeyFilter';
 
 // Standard local proxy endpoint established in server.ts
 const PROXY_URL = 'http://localhost:3000/api/proxy';
@@ -26,6 +28,7 @@ export default function App() {
     const [error, setError] = useState<string | null>(null);
     const [astRoot, setAstRoot] = useState<NormalizedNode | null>(null);
     const [metrics, setMetrics] = useState<PayloadMetrics | null>(null);
+    const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
     const [tickerItems, setTickerItems] = useState<string[]>([
         'SYSTEM ONLINE',
         'AWAITING INGESTION COMMAND',
@@ -38,6 +41,7 @@ export default function App() {
         setError(null);
         setAstRoot(null);
         setMetrics(null);
+        setActiveFilters({}); // Reset active AST filters on new request
         setTickerItems(['INITIATING CONNECTION...', `TARGET: ${config.url}`, 'BYPASSING CORS...']);
 
         try {
@@ -90,6 +94,18 @@ export default function App() {
         }
     };
 
+    const handleFilterChange = (key: string, value: string | null) => {
+        setActiveFilters(prev => {
+            const next = { ...prev };
+            if (value === null) {
+                delete next[key];
+            } else {
+                next[key] = value;
+            }
+            return next;
+        });
+    };
+
     return (
         <div className="min-h-screen bg-[#f4f4f0] text-black font-sans antialiased overflow-x-hidden selection:bg-black selection:text-white pb-20">
             <EditionHeader />
@@ -119,8 +135,32 @@ export default function App() {
 
                 {/* Master Output Render Boundary */}
                 {astRoot && metrics && (
-                    <section className="animate-in fade-in slide-in-from-bottom-8 duration-500">
-                        <EditorialGrid dataNode={astRoot} metrics={metrics} />
+                    <section className="animate-in fade-in slide-in-from-bottom-8 duration-500 flex flex-col gap-6">
+                        
+                        {/* 100% Uniqueness Filter Dropdowns */}
+                        <UniqueKeyFilter 
+                            uniqueKeys={metrics.uniqueKeys} 
+                            onFilterChange={handleFilterChange} 
+                        />
+
+                        {/* Split Layout: Value Distribution & AST Log */}
+                        <div className="flex flex-col xl:flex-row gap-6 items-start">
+                            
+                            {/* Distribution Sidebar (<100% Uniqueness) */}
+                            <div className="w-full xl:w-1/3 flex-shrink-0">
+                                <ValueDistributionPanel distributedKeys={metrics.distributedKeys} />
+                            </div>
+
+                            {/* Prunable AST Grid */}
+                            <div className="w-full xl:w-2/3 flex-grow overflow-hidden">
+                                <EditorialGrid 
+                                    dataNode={astRoot} 
+                                    metrics={metrics} 
+                                    activeFilters={activeFilters} 
+                                />
+                            </div>
+                            
+                        </div>
                     </section>
                 )}
 
