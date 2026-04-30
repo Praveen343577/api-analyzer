@@ -161,7 +161,7 @@ function dfsCompute(
     
     if (typeof node === 'string') {
         // Enclose strings in quotes to distinguish from numeric identicals (e.g., "1" vs 1)
-        trackValue(`"${node}"`);
+        trackValue(node === '' ? '""' : node);
         return { size: encoder.encode(JSON.stringify(node)).length, depth: 1 };
     }
 

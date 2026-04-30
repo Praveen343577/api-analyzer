@@ -32,7 +32,7 @@ export interface EditorialGridProps extends React.HTMLAttributes<HTMLDivElement>
 const stringifyLeafValue = (val: string | number | boolean | null): string => {
     if (val === null) return 'null';
     if (typeof val === 'boolean') return val ? 'true' : 'false';
-    if (typeof val === 'string') return `"${val}"`;
+    if (typeof val === 'string') return val === '' ? '""' : val;
     // For float comparison without importing floatBinner, cast to string. 
     // Exact match is required.
     return String(val); 

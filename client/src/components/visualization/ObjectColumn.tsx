@@ -50,7 +50,7 @@ export const ObjectColumn = React.forwardRef<HTMLDivElement, ObjectColumnProps>(
                 >
                     <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-widest">
                         <span>{isExpanded ? '▼' : '▶'}</span>
-                        <span>{typeof node.key === 'string' ? `"${node.key}"` : `[${node.key}]`}</span>
+                        <span>{typeof node.key === 'string' ? node.key : `[${node.key}]`}</span>
                         <span className="text-gray-500 font-normal">Object {"{"}{node.children?.length || 0}{"}"}</span>
                     </div>
                     <PiiRedBadge level={node.pii?.threatLevel || 'None'} typeLabel={node.pii?.type || null} />
